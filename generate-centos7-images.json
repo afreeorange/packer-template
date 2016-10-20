@@ -114,6 +114,7 @@
           "scripts/base.sh",
           "scripts/users.sh",
           "scripts/repositories.sh",
+          "scripts/package_installation.sh",
           "scripts/services.sh",
           "scripts/certificates.sh",
           "scripts/cleanup.sh"
