@@ -1,0 +1,125 @@
+{
+
+  "variables": {
+    "image_name": "MyImage",
+
+    "aws_access_key": "xxxxxxxxxxxxx",
+    "aws_secret_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "aws_source_ami": "ami-xxxxxxxx",
+    "aws_vpc_id": "vpc-xxxxxxxx",
+    "aws_subnet_id": "subnet-xxxxxxxx",
+    "aws_region": "us-east-1",
+
+    "docker_base_image": "centos:centos7.2.1511",
+
+    "centos_iso_uri": "http://mirrors.rit.edu/centos/7/isos/x86_64/CentOS-7-x86_64-Minimal-1511.iso",
+    "centos_iso_checksum": "783eef50e1fb91c78901d0421d8114a29b998478"
+  },
+
+  "builders": [
+    {
+      "type": "amazon-ebs",
+
+      "access_key": "{{user `aws_access_key`}}",
+      "secret_key": "{{user `aws_secret_key`}}",
+      "region": "{{user `aws_region`}}",
+
+      "instance_type": "t2.nano",
+      "source_ami": "{{user `aws_source_ami`}}",
+      "ami_name": "{{user `image_name`}}-{{timestamp}}",
+      "ami_description": "A Sample CentOS 7 AMI",
+
+      "ssh_username": "ec2-user",
+      "associate_public_ip_address": true,
+
+      "vpc_id": "{{user `aws_vpc_id`}}",
+      "subnet_id": "{{user `aws_subnet_id`}}",
+      "tags": {
+        "Name": "{{user `image_name`}}-{{timestamp}}"
+      }
+    },
+    {
+      "type": "docker",
+      "image": "{{user `docker_base_image`}}",
+      "export_path": "{{user `image_name`}}.tar",
+      "run_command": [
+        "-e foo=bar",
+        "-d",
+        "-i",
+        "-t",
+        "{{.Image}}",
+        "/bin/bash"
+      ]
+    },
+    {
+      "type": "virtualbox-iso",
+      "vm_name": "{{user `image_name`}}",
+      "output_directory": "machines",
+
+      "guest_os_type": "RedHat_64",
+      "guest_additions_mode": "disable",
+
+      "iso_checksum_type": "sha1",
+      "iso_checksum": "{{user `centos_iso_checksum`}}",
+      "iso_url": "{{user `centos_iso_uri`}}",
+
+      "ssh_username": "cloud-user",
+      "ssh_password": "password",
+      "ssh_wait_timeout": "1000s",
+
+      "http_directory": "http",
+      "boot_command": [
+        "<esc>",
+        "<wait>",
+        "linux ks=http://{{.HTTPIP}}:{{.HTTPPort}}/anaconda-ks.cfg<enter>",
+        "<wait>"
+      ],
+      "guest_additions_path": "VBoxGuestAdditions_{{.Version}}.iso",
+      "shutdown_command": "sudo systemctl poweroff",
+
+      "vboxmanage": [
+        ["modifyvm", "{{.Name}}", "--memory", "512"],
+        ["modifyvm", "{{.Name}}", "--cpus", "1"]
+      ]
+    }
+  ],
+
+  "provisioners": [{
+    "type": "shell",
+    "override": {
+      "docker": {
+        "execute_command": "echo 'password' | {{ .Vars }} sudo -S -E bash '{{ .Path }}'",
+        "scripts": [
+          "scripts/base.sh",
+          "scripts/repositories.sh",
+          "scripts/package_installation.sh",
+          "scripts/services.sh",
+          "scripts/certificates.sh",
+          "scripts/cleanup.sh"
+        ]
+      },
+      "virtualbox-iso": {
+        "execute_command": "echo 'password' | {{ .Vars }} sudo -S -E bash '{{ .Path }}'",
+        "scripts": [
+          "scripts/base.sh",
+          "scripts/repositories.sh",
+          "scripts/package_installation.sh",
+          "scripts/services.sh",
+          "scripts/certificates.sh",
+          "scripts/cleanup.sh"
+        ]
+      },
+      "amazon-ebs": {
+        "scripts": [
+          "scripts/base.sh",
+          "scripts/users.sh",
+          "scripts/repositories.sh",
+          "scripts/services.sh",
+          "scripts/certificates.sh",
+          "scripts/cleanup.sh"
+        ],
+      }
+    }
+  }]
+
+}
